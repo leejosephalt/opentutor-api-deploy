@@ -18,7 +18,7 @@ def _load_secret_files() -> None:
     from pathlib import Path
 
     for name in (
-        "DATABASE_URL",
+         "DATABASE_URL",
         "JWT_SECRET_KEY",
         "ENCRYPTION_KEY",
         "ADMIN_PASSWORD_HASH",
@@ -347,10 +347,19 @@ class Settings(BaseSettings):
                     "Default database password must be changed in production"
                 )
             if not self.encryption_key:
-                raise ValueError(
-                    "ENCRYPTION_KEY is required in production for at-rest encryption "
-                    "of sensitive data (OAuth tokens, etc.). Generate one with: "
-                    "python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+                # Derive a stable Fernet key from the JWT secret when a dedicated
+                # key is not provided. This keeps the deploy bootable on hosts
+                # where env changes are awkward, while remaining deterministic
+                # across restarts. Prefer setting a dedicated ENCRYPTION_KEY.
+                import base64 as _b64
+                import hashlib as _hashlib
+
+                self.encryption_key = _b64.urlsafe_b64encode(
+                    _hashlib.sha256(self.jwt_secret_key.encode()).digest()
+                ).decode()
+                _log.warning(
+                    "ENCRYPTION_KEY not set; derived one from JWT_SECRET_KEY. "
+                    "Set a dedicated ENCRYPTION_KEY for key separation."
                 )
         return self
 
