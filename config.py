@@ -20,6 +20,7 @@ def _load_secret_files() -> None:
     for name in (
         "DATABASE_URL",
         "JWT_SECRET_KEY",
+        "ENCRYPTION_KEY",
         "ADMIN_PASSWORD_HASH",
         "DEEPSEEK_API_KEY",
         "AIHUBMIX_API_KEY",
