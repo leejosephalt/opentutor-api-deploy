@@ -82,7 +82,7 @@ async def get_current_user(
             detail="AUTH_ENABLED must be true when DEPLOYMENT_MODE is multi_user",
         )
 
-    if not credentials:
+      if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
@@ -94,12 +94,33 @@ async def get_current_user(
 
         try:
             claims = verify_firebase_id_token(credentials.credentials)
-        except FirebaseAuthError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token",
-                headers={"WWW-Authenticate": "Bearer"},
-            ) from exc
+        except FirebaseAuthError:
+            # Also accept our own access tokens (e.g. admin login) in this mode.
+            from services.auth.jwt import JWTError, decode_token
+
+            try:
+                payload = decode_token(credentials.credentials)
+                if payload.get("type") != "access":
+                    raise HTTPException(status_code=401, detail="Invalid token type")
+                local_user_id = uuid.UUID(payload["sub"])
+            except (JWTError, ValueError, KeyError) as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid or expired token",
+                    headers={"WWW-Authenticate": "Bearer"},
+                ) from exc
+
+            result = await _execute_user_query(
+                db, select(User).where(User.id == local_user_id)
+            )
+            user = result.scalar_one_or_none()
+            if not user or not user.is_active:
+                raise HTTPException(status_code=401, detail="User not found or inactive")
+            if request is not None:
+                request.state.user_id = str(user.id)
+                request.state.deployment_mode = settings.deployment_mode
+            await _apply_ai_context(request, db, user)
+            return user
 
         email = (claims.get("email") or "").strip() or None
         if not email:

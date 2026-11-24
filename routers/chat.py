@@ -146,10 +146,9 @@ async def chat_stream(
     if body.interrupt:
         body.message = f"[User interrupted the previous response to say:] {body.message}"
 
-    course = await get_course_or_404(db, body.course_id, user_id=user.id)
-
     # Plan gate + quota: free accounts cannot use conversational chat (it is the
-    # most token-expensive surface). One-shot features remain available.
+    # most token-expensive surface). One-shot features remain available. Check
+    # this before any resource lookup so Free users get a clear 403.
     from libs.exceptions import FeatureDisabledError
     from services import ai_policy
 
@@ -159,6 +158,8 @@ async def chat_stream(
             "AI tutor chat is available on the Pro plan. Notes, quizzes, and flashcards still work on Free."
         )
     await ai_policy.check_and_reserve(db, user.id)
+
+    course = await get_course_or_404(db, body.course_id, user_id=user.id)
 
     await ensure_llm_ready("Chat tutoring")
     session_factory = getattr(request.app.state, "test_session_factory", None) or async_session
