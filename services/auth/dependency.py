@@ -82,7 +82,7 @@ async def get_current_user(
             detail="AUTH_ENABLED must be true when DEPLOYMENT_MODE is multi_user",
         )
 
-      if not credentials:
+    if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
