@@ -261,7 +261,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _resolve_database_url(self):
-         """Resolve database URL (SQLite local mode or PostgreSQL).
+        """Resolve database URL (SQLite local mode or PostgreSQL).
 
         - Empty/unset DATABASE_URL → SQLite at ~/.opentutor/data.db (local dev)
         - sqlite:// URLs are accepted as-is
