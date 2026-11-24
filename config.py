@@ -7,6 +7,37 @@ from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _load_secret_files() -> None:
+    """Load secrets from /etc/secrets/* when the env var is not set.
+
+    Render mounts files passed via `--secret-file` at /etc/secrets/<name>.
+    Reading them into the environment keeps secrets out of command lines and
+    build logs while still working with pydantic-settings.
+    """
+    import os
+    from pathlib import Path
+
+    for name in (
+        "DATABASE_URL",
+        "JWT_SECRET_KEY",
+        "ADMIN_PASSWORD_HASH",
+        "DEEPSEEK_API_KEY",
+        "AIHUBMIX_API_KEY",
+        "OPENROUTER_API_KEY",
+    ):
+        if os.environ.get(name):
+            continue
+        path = Path("/etc/secrets") / name
+        try:
+            if path.is_file():
+                os.environ[name] = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+
+
+_load_secret_files()
+
+
 class Settings(BaseSettings):
     environment: str = "development"
 
@@ -230,7 +261,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _resolve_database_url(self):
-        """Resolve database URL (SQLite local mode or PostgreSQL).
+         """Resolve database URL (SQLite local mode or PostgreSQL).
 
         - Empty/unset DATABASE_URL → SQLite at ~/.opentutor/data.db (local dev)
         - sqlite:// URLs are accepted as-is
