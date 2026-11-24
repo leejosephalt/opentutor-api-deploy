@@ -17,6 +17,7 @@ from typing import Any
 
 import httpx
 import jwt
+from cryptography import x509
 
 from config import settings
 
@@ -87,9 +88,14 @@ def verify_firebase_id_token(token: str) -> dict[str, Any]:
         raise FirebaseAuthError("Unknown signing key")
 
     try:
+        public_key = x509.load_pem_x509_certificate(pem.encode()).public_key()
+    except ValueError as exc:
+        raise FirebaseAuthError("Invalid signing certificate") from exc
+
+    try:
         claims = jwt.decode(
             token,
-            pem,
+            public_key,
             algorithms=["RS256"],
             audience=project_id,
             issuer=f"https://securetoken.google.com/{project_id}",

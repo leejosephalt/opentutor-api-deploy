@@ -36,6 +36,7 @@ _EXEMPT_PREFIXES = (
     "/api/auth/login",
     "/api/auth/register",
     "/api/auth/refresh",
+    "/api/auth/admin/login",
 )
 
 
@@ -97,6 +98,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
         # Skip exempt paths
         if any(path.startswith(prefix) for prefix in _EXEMPT_PREFIXES):
+            return await call_next(request)
+
+        # Bearer-token auth is not CSRF-vulnerable (no ambient cookies), and a
+        # cross-origin SPA cannot read the cookie to echo it back. Exempt it.
+        if request.headers.get("authorization", "").lower().startswith("bearer "):
             return await call_next(request)
 
         method = request.method
