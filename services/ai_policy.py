@@ -26,7 +26,7 @@ from models.ai_account import AIUsageCounter, UserAISettings
 
 PLAN_FREE = "free"
 PLAN_PRO = "pro"
-MODEL_TIERS = ("fast", "smart")
+MODEL_TIERS = ("fast",)
 DEFAULT_TIER = "fast"
 
 
@@ -131,6 +131,9 @@ async def get_or_create_usage(
 
 async def set_model_tier(db: AsyncSession, user_id: uuid.UUID, tier: str) -> UserAISettings:
     tier = (tier or "").strip().lower()
+    if tier == "smart":
+        # Smart tier removed: keep old clients working with the single model.
+        tier = "fast"
     if tier not in MODEL_TIERS:
         raise ValueError(f"Unknown model tier: {tier}")
     row = await get_or_create_settings(db, user_id)

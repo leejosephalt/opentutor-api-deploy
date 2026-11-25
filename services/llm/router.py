@@ -333,8 +333,8 @@ def _default_model_for_provider(provider: str, fallback: str) -> str:
 def _build_managed_registry() -> ProviderRegistry:
     """Build the locked, admin-controlled registry (managed mode).
 
-    Only the two approved tiers are exposed. Each tier falls back from the
-    primary provider (AiHubMix) to the backup provider (OpenRouter).
+    A single approved model is served. Calls fall back from the primary
+    provider (AiHubMix) to the backup provider (OpenRouter).
     """
     from services.llm.managed import ManagedLLMClient
 
@@ -350,38 +350,30 @@ def _build_managed_registry() -> ProviderRegistry:
             "Managed mode has no fallback API key (MANAGED_FALLBACK_API_KEY / OPENROUTER_API_KEY)."
         )
 
-    for tier, model in (
-        ("fast", settings.managed_llm_model_fast),
-        ("smart", settings.managed_llm_model_smart),
-    ):
-        primary = OpenAIClient(
-            primary_key or "missing",
-            model,
-            base_url=settings.managed_llm_base_url,
-            name=f"aihubmix-{tier}",
+    model = settings.managed_llm_model_fast
+    primary = OpenAIClient(
+        primary_key or "missing",
+        model,
+        base_url=settings.managed_llm_base_url,
+        name="aihubmix",
+    )
+    fallback = None
+    if fallback_key:
+        fallback = OpenAIClient(
+            fallback_key,
+            settings.managed_fallback_model,
+            base_url=settings.managed_fallback_base_url,
+            name="openrouter",
         )
-        fallback = None
-        if fallback_key:
-            fallback = OpenAIClient(
-                fallback_key,
-                settings.managed_fallback_model,
-                base_url=settings.managed_fallback_base_url,
-                name=f"openrouter-{tier}",
-            )
-        client = ManagedLLMClient(tier=tier, primary=primary, fallback=fallback)
-        registry.register_variant(tier, client)
-        # Keep size-hint call sites working inside the locked set.
-        if tier == "fast":
-            registry.register_variant("small", client)
-        else:
-            for alias in ("large", "standard", "frontier"):
-                registry.register_variant(alias, client)
+    client = ManagedLLMClient(tier="fast", primary=primary, fallback=fallback)
+    # Single locked model; keep size-hint aliases working for older call sites.
+    for alias in ("fast", "small", "large", "standard", "frontier", "smart"):
+        registry.register_variant(alias, client)
 
-    registry.register("managed", registry._model_variants["fast"], primary=True)
+    registry.register("managed", client, primary=True)
     logger.info(
-        "Managed LLM mode enabled: fast=%s smart=%s backup=%s",
-        settings.managed_llm_model_fast,
-        settings.managed_llm_model_smart,
+        "Managed LLM mode enabled: model=%s backup=%s",
+        model,
         settings.managed_fallback_model if fallback_key else "none",
     )
     return registry

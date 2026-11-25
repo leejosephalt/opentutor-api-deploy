@@ -78,8 +78,7 @@ class Settings(BaseSettings):
     managed_llm_enabled: bool = False
     aihubmix_api_key: str = ""
     managed_llm_base_url: str = "https://aihubmix.com/v1"
-    managed_llm_model_fast: str = "particle-1-free"
-    managed_llm_model_smart: str = "xiaomi-mimo-v2.6-pro-free"
+    managed_llm_model_fast: str = "deepseek-v4.1-flash-1017"
     # Backup used when AiHubMix is exhausted; falls back to OPENROUTER_API_KEY.
     managed_fallback_api_key: str = ""
     managed_fallback_base_url: str = "https://openrouter.ai/api/v1"
