@@ -18,6 +18,7 @@ from models.progress import LearningProgress
 from models.practice import PracticeProblem
 from models.user import User
 from services.auth.dependency import get_current_user
+from services.course_access import get_course_or_404
 from services.knowledge.graph import build_knowledge_graph
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,7 @@ async def get_knowledge_graph(
     db: AsyncSession = Depends(get_db),
 ):
     """Get knowledge graph for a course (D3-compatible format)."""
+    await get_course_or_404(db, course_id, user_id=user.id)
     if not settings.enable_experimental_loom:
         raise HTTPException(404, "LOOM knowledge graph is experimental. Set ENABLE_EXPERIMENTAL_LOOM=true to enable.")
     try:
@@ -71,6 +73,7 @@ async def get_learning_path(
     db: AsyncSession = Depends(get_db),
 ):
     """Get prerequisite-respecting study order for unmastered concepts (Kahn's algorithm)."""
+    await get_course_or_404(db, course_id, user_id=user.id)
     if not settings.enable_experimental_loom:
         raise HTTPException(404, "LOOM knowledge graph is experimental. Set ENABLE_EXPERIMENTAL_LOOM=true to enable.")
     from services.loom_graph import generate_learning_path
@@ -399,6 +402,7 @@ async def get_loom_graph(
     db: AsyncSession = Depends(get_db),
 ):
     """Get LOOM concept mastery graph with nodes, edges, and recommendations."""
+    await get_course_or_404(db, course_id, user_id=user.id)
     if not settings.enable_experimental_loom:
         raise HTTPException(404, "LOOM knowledge graph is experimental. Set ENABLE_EXPERIMENTAL_LOOM=true to enable.")
     from services.loom_graph import get_mastery_graph
